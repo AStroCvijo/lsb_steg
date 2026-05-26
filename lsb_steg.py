@@ -38,6 +38,14 @@ def capacity_bits(image_path: str) -> int:
     return w * h * 3 - HEADER_BITS
 
 
+# function for computing capacity when using the n lowest bits of each channel
+def capacity_bits_n(image_path: str, n: int) -> int:
+    with Image.open(image_path) as im:
+        im = im.convert("RGB")
+        w, h = im.size
+    return w * h * 3 * n - HEADER_BITS
+
+
 # function for embedding a message into the LSBs of an image and saving the result
 def encode(image_in: str, message: str | bytes, image_out: str) -> None:
     if isinstance(message, str):
@@ -87,6 +95,72 @@ def decode(image_in: str) -> bytes:
 # function for decoding a stego image directly as text
 def decode_text(image_in: str, encoding: str = "utf-8") -> str:
     return decode(image_in).decode(encoding)
+
+
+# function for embedding a message into the n lowest bits of each channel
+def encode_n_lsb(image_in: str, message: str | bytes, image_out: str, n: int = 1) -> None:
+    if not 1 <= n <= 8:
+        raise ValueError("n mora biti u opsegu 1..8.")
+    if isinstance(message, str):
+        payload = message.encode("utf-8")
+    else:
+        payload = message
+
+    with Image.open(image_in) as im:
+        im = im.convert("RGB")
+        pixels = np.array(im, dtype=np.uint8)
+
+    flat = pixels.reshape(-1)
+    msg_bits = _bytes_to_bits(payload)
+    header = _int_to_bits(len(msg_bits), HEADER_BITS)
+    all_bits = np.concatenate([header, msg_bits])
+
+    pad = (-all_bits.size) % n
+    if pad:
+        all_bits = np.concatenate([all_bits, np.zeros(pad, dtype=np.uint8)])
+
+    n_channels = all_bits.size // n
+    if n_channels > flat.size:
+        raise ValueError(
+            f"Poruka prevelika za n={n}: treba {n_channels} kanala, slika ima {flat.size}."
+        )
+
+    groups = all_bits.reshape(n_channels, n)
+    values = np.zeros(n_channels, dtype=np.uint8)
+    for i in range(n):
+        values |= (groups[:, i].astype(np.uint8) << (n - 1 - i))
+
+    clear_mask = np.uint8(0xFF ^ ((1 << n) - 1))
+    flat[:n_channels] = (flat[:n_channels] & clear_mask) | values
+
+    new_pixels = flat.reshape(pixels.shape)
+    Image.fromarray(new_pixels).save(image_out)
+
+
+# function for extracting a message hidden in the n lowest bits of each channel
+def decode_n_lsb(image_in: str, n: int = 1) -> bytes:
+    if not 1 <= n <= 8:
+        raise ValueError("n mora biti u opsegu 1..8.")
+    with Image.open(image_in) as im:
+        im = im.convert("RGB")
+        pixels = np.array(im, dtype=np.uint8)
+
+    flat = pixels.reshape(-1)
+    take_mask = np.uint8((1 << n) - 1)
+    vals = flat & take_mask
+
+    all_bits = np.zeros(flat.size * n, dtype=np.uint8)
+    for i in range(n):
+        all_bits[i::n] = (vals >> (n - 1 - i)) & 1
+
+    n_bits = _bits_to_int(all_bits[:HEADER_BITS])
+    if n_bits <= 0 or n_bits > all_bits.size - HEADER_BITS:
+        raise ValueError(f"Neispravan header (duzina={n_bits}).")
+    if n_bits % 8 != 0:
+        raise ValueError("Duzina poruke nije visekratnik od 8 bitova.")
+
+    msg_bits = all_bits[HEADER_BITS : HEADER_BITS + n_bits]
+    return _bits_to_bytes(msg_bits)
 
 
 # function for comparing cover and stego images (changed channels, PSNR, MSE)

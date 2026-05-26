@@ -24,3 +24,11 @@ Skripta generise 4 razlicite cover slike, upisuje u svaku po jednu poruku, dekod
 4. Pri dekodiranju citamo prvih 32 bita -> duzina, zatim toliko bita -> poruka.
 
 Kapacitet: `sirina * visina * 3 - 32` bita. Na slici 512x384 to je ~589 kbita ~= 73 kB teksta.
+
+## Kriptoanaliza
+
+```
+python cryptanalysis.py
+```
+
+Pokrece blind decode stego slike, snima vizualizaciju LSB ravni u `analysis/`, racuna chi-square test za detekciju, i tabelarno prikazuje PSNR po popunjenosti slike i po dubini LSB-ova (n=1..4). Prethodno mora biti pokrenut `generate_samples.py`.
