@@ -150,7 +150,6 @@ def main() -> None:
     print(f"  dekodirano OK, promenjeno {rep['changed_channels']} kanala, "
           f"PSNR={rep['psnr_db']:.2f} dB")
 
-    # Primeri na pravim fotografijama (ako postoje u samples/)
     real_msg = (
         "Tajna poruka skrivena u pravoj fotografiji pomocu LSB steganografije. "
         "Iako fotografija izgleda potpuno nepromenjeno, u najnize bitove piksela "
