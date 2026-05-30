@@ -85,6 +85,32 @@ def run_example(name: str, cover_path: Path, message: str) -> None:
     print(f"  PSNR: {report['psnr_db']:.2f} dB  (vise od ~50 dB = covek ne vidi razliku)")
 
 
+# function for running an example on a real photograph (JPEG in, PNG stego out)
+def run_real_photo_example(name: str, photo_path: Path, message: str) -> None:
+    stego_path = OUT_DIR / f"{name}_stego.png"
+    encode(str(photo_path), message, str(stego_path))
+    recovered = decode_text(str(stego_path))
+    report = diff_report(str(photo_path), str(stego_path))
+
+    assert recovered == message, f"Mismatch u primeru {name}!"
+
+    from PIL import Image
+    with Image.open(photo_path) as im:
+        w, h = im.size
+    cap_chars = capacity_bits(str(photo_path)) // 8
+
+    print(f"\n=== Primer (PRAVA FOTOGRAFIJA): {name} ===")
+    print(f"  cover:  {photo_path.name}  ({w}x{h} px)")
+    print(f"  stego:  {stego_path.name}")
+    print(f"  kapacitet: ~{cap_chars} bajtova (~{cap_chars // 1024} kB teksta)")
+    print(f"  poruka ({len(message)} char): {message[:60]}{'...' if len(message) > 60 else ''}")
+    print(f"  dekodirana == originalna: OK")
+    print(f"  promenjeno kanala: {report['changed_channels']} / {report['total_channels']} "
+          f"({report['changed_pct']:.5f}%)")
+    print(f"  max razlika po kanalu: {report['max_abs_diff_per_channel']} (ocekivano <=1)")
+    print(f"  PSNR: {report['psnr_db']:.2f} dB  (vise od ~50 dB = covek ne vidi razliku)")
+
+
 # function for generating all cover images and running every example
 def main() -> None:
     OUT_DIR.mkdir(exist_ok=True)
@@ -123,6 +149,23 @@ def main() -> None:
     print(f"\n=== Primer: photo_binary (1024 bajta proizvoljnih byte vrednosti) ===")
     print(f"  dekodirano OK, promenjeno {rep['changed_channels']} kanala, "
           f"PSNR={rep['psnr_db']:.2f} dB")
+
+    # Primeri na pravim fotografijama (ako postoje u samples/)
+    real_msg = (
+        "Tajna poruka skrivena u pravoj fotografiji pomocu LSB steganografije. "
+        "Iako fotografija izgleda potpuno nepromenjeno, u najnize bitove piksela "
+        "upisan je ovaj tekst. Posto fotografija ima milione piksela, promena je "
+        "potpuno nevidljiva golim okom, a kapacitet je dovoljan za cele stranice teksta."
+    )
+    real_photos = {
+        "real_photo1": OUT_DIR / "image1.jpg",
+        "real_photo2": OUT_DIR / "image2.jpg",
+    }
+    for name, path in real_photos.items():
+        if path.exists():
+            run_real_photo_example(name, path, real_msg)
+        else:
+            print(f"\n(preskocena prava fotografija: {path.name} ne postoji)")
 
     print(f"\nSve slike su u: {OUT_DIR}")
 

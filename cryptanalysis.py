@@ -156,9 +156,22 @@ def main() -> None:
     print("                 chi^2/df >> 1 = parovi (2k, 2k+1) nesimetricni (cisto).")
 
     print("\n[4] KAPACITET vs VIDLJIVOST (1-LSB, photo cover)")
+    print("    Formula: maks. karaktera = (sirina * visina * 3) / 8 - 4 bajta (header)")
+    capacity_rows = []
+    candidates = [cover, OUT_DIR / "image1.jpg", OUT_DIR / "image2.jpg"]
+    for path in candidates:
+        if not Path(path).exists():
+            continue
+        with Image.open(path) as im:
+            w, h = im.convert("RGB").size
+        max_chars = capacity_bits(str(path)) // 8
+        capacity_rows.append({
+            "slika": Path(path).name,
+            "dimenzije": f"{w}x{h}",
+            "maks_karaktera_1LSB": max_chars,
+        })
+    _print_table("Maksimalan broj karaktera po slici (1-LSB, ostaje nevidljivo)", capacity_rows)
     cap_b = capacity_bits(str(cover)) // 8
-    print(f"    Maksimalan kapacitet 1-LSB sheme: {cap_b} bajtova "
-          f"(= {cap_b} ASCII karaktera).")
     sweep = capacity_vs_psnr(str(cover), n=1, steps=10)
     _print_table("PSNR sa porastom popunjenosti slike (1-LSB)", sweep)
     print("    PSNR > 50 dB = covek ne vidi razliku.")
